@@ -1,0 +1,54 @@
+{
+    "username": "devsplunk",
+    "password": "ozg4ud2dqwgTp50v74EE",
+    "host": "splunkclusterapi.points.com",
+    "port": "443",
+    "earliest_time": "-60m",
+    "latest_time": "now",
+    "query":  ["SEARCH host=tp* index=pie source=/logs/pieeight*/*Recorder* Began OR REQ_PXML OR RSP_PXML  "
+        , "| transaction maxspan=5m transferID "
+        , "| rex field=_raw \".*PayloadContent type=\\\"(?<transType>.*?)\\\"\\>\" "
+        , "| rex field=_raw \"Began [^ ]+ (?<realdomain>[^/ ]+)\"  "
+        , "| anomalies labelonly=True field=Response_Code by transType "
+        , "| eval resultmvsuccess = if((Response_Code == \"Success\" OR Response_Code == \"Invalid Password\") AND transType == \"MemberValidation\", 1, 0)  "
+        , "| eval resultmvfailure = if((Response_Code != \"Success\" AND Response_Code != \"Invalid Password\") AND transType == \"MemberValidation\", 1, 0)  "
+        , "| eval resultpxsuccess = if(Response_Code == \"Success\" AND transType == \"Posting\", 1, 0)  "
+        , "| eval resultpxfailure = if(Response_Code != \"Success\" AND transType == \"Posting\", 1, 0)  "
+        , "| eval resultpxpending = if (Transaction_Status==\"PENDING\" AND transType==\"Posting\", 1, 0) "
+        , "| eval resultpxbatch = if((isnull(Transaction_Status) AND isnull(Response_Code)) AND transType==\"Posting\",1,0) "
+        , "| eval resultmv = if (transType == \"MemberValidation\", 1, 0) "
+        , "| eval resultpx = if (transType == \"Posting\", 1, 0) "
+        , "| chart count as Total, sum(resultmv) as MV, sum(resultpx) as PX, sum(resultmvsuccess) as MVSuccess, sum(resultmvfailure) as MVFailure, sum(resultpxsuccess) as PXSuccess, sum(resultpxfailure) as PXFailure, sum(resultpxpending) as PX_Pending, sum(resultpxbatch) as batchOutbound, max(unexpectedness) as Unexpectedness by realdomain  "
+        , "| eval MVSuccessRate = round(MVSuccess / (MVSuccess + MVFailure) * 100, 2) "
+        , "| eval PXSuccessRate = round(PXSuccess / (PXSuccess + PXFailure) * 100, 2) "
+        , "| fillnull value=100 MVSuccessRate PXSuccessRate "
+        , "| eval Score = round((100 - (MVSuccessRate * PXSuccessRate / 100)) * Unexpectedness) "
+    ],
+    "criteria": {
+        "Wyndham_PointsCore": "(result['MVFailure'] > 20 && result['MVSuccessRate'] < 50) && (result['PXFailure'] > 10 && result['PXSuccessRate'] < 90)",
+        "VirginAmerica_PointsCore": "result['MV'] > 10",
+        "AAdvantage_Redeem": "(result['Total'] > 20 && result['PXSuccessRate'] < 50) ",
+        "default": "(result['Total'] > 20 && result['PXSuccessRate'] < 80) "
+    },
+    "alert": {
+        "service_key": "97e3ba226be747148e18534abe4f5ae9",
+        "event_type": "trigger", 
+        "description": "PIE Unexpected Failure Automated Monitoring Alert",
+        "client": "Sample Monitoring Service",
+        "client_url": "https://monitoring.service.com",
+        "details": "I will be replaced", 
+        "contexts":[ 
+            { 
+                "type": "link",
+                "href": "http://pointscom.pagerduty.com"
+            },{
+                "type": "link",
+                "href": "http://pointscom.pagerduty.com",
+                "text": "View the incident on PagerDuty"
+            },{
+                "type": "image", 
+                "src": "https://chart.googleapis.com/chart?chs=600x400&chd=t:6,2,9,5,2,5,7,4,8,2,1&cht=lc&chds=a&chxt=y&chm=D,0033FF,0,0,5,1" 
+            }
+        ]
+    }
+}
