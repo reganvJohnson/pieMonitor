@@ -1,8 +1,5 @@
 {
-    "username": "devsplunk",
-    "password": "ozg4ud2dqwgTp50v74EE",
-    "host": "splunkclusterapi.points.com",
-    "port": "443",
+   
     "earliest_time": "-60m",
     "latest_time": "now",
     "query":  ["SEARCH host=tp* index=pie source=/logs/pieeight*/*Recorder* Began OR REQ_PXML OR RSP_PXML  "
